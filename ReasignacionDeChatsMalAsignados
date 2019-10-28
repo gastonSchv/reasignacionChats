@@ -1,0 +1,7 @@
+let HP = require('./ElementosDeHighland-Pagination')
+let PC = require('./ProcesamientoDeConversacion')
+let Promise = require('bluebird')
+
+HP.obtenerConversacionesTotales()
+.then(conversaciones => PC.identificadoresDeMiembrosDelEquipo()
+	.then(equipo => Promise.map(conversaciones,conversacion => PC.procesarConversacion(conversacion,equipo),{concurrency:10})))
