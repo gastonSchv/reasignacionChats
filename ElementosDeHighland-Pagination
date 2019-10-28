@@ -1,0 +1,31 @@
+let request = require('request-promise')
+let _ = require('lodash')
+let HighlandPagination = require('highland-pagination')
+let Promise = require('bluebird')
+
+const bearer = 'dG9rOjc3Zjg1Y2VkX2VlNDFfNDgyYl84YzljXzAwZmQ5OTk5NTlhMDoxOjA=' 
+
+const cerradaHaceMenosDeTreintaDias = conversations => {
+	var today = _.round((new Date()).getTime()/1000)
+	return today - _.last(conversations).updated_at <2520000	
+}
+const crearOptions = numeroDePagina  => ({
+	url: `https://api.intercom.io/conversations?per_page=50&page=${numeroDePagina}&sort=updated_at&order=desc`,
+	auth: {bearer: bearer},
+	json:true
+})
+const obtenerConversacionesPorPagina = (numeroDePagina = 1) => {
+	return request(crearOptions(numeroDePagina))
+		   .then(({conversations,pages : {page: numeroDePagina}}) => 
+		   	({items: conversations, nextToken: cerradaHaceMenosDeTreintaDias(conversations) ? numeroDePagina + 1 : null})
+			)	
+}
+const obtenerConversacionesTotales = () => {
+	return new HighlandPagination(obtenerConversacionesPorPagina)
+	.stream()
+	.collect()
+	.toPromise(Promise)
+}
+
+module.exports.obtenerConversacionesTotales = obtenerConversacionesTotales
+module.exports.bearer = bearer
