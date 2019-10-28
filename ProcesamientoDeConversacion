@@ -1,0 +1,65 @@
+let request = require('request-promise')
+let promiseRetry = require('promise-retry')
+let _ = require('lodash')
+let HighlandPagination = require('./ElementosDeHighland-Pagination.js')
+
+const bearer = HighlandPagination.bearer 
+
+const asignarCorrectamenteYCerrarConversacion = (idConversacion,idAdministrador,idAsignado) => {
+	var options = {
+		url: `https://api.intercom.io/conversations/${idConversacion}/reply`,
+		method: 'POST',
+		auth : {bearer: bearer},
+		json: true,
+		body: {type:'admin', admin_id:idAdministrador, assignee_id:idAsignado, message_type:'close'}
+	}
+	return promiseRetry(() => request(options))
+	.then(() => console.log(`conversacion ${idConversacion} reasignada desde ${idAdministrador} hacia ${idAsignado}`))
+	.catch(err => console.log(err))
+}
+const tagDeMiembroDelEquipoEnUsuario = (user,identificadoresDeMiembrosDelEquipo) => {
+	const hallarTagDeMiembroDelEquipo = (user,identificadoresDeMiembrosDelEquipo) => {
+		return user.tags.tags.find(tag => _.includes(identificadoresDeMiembrosDelEquipo,tag.name))
+	}
+	if(hallarTagDeMiembroDelEquipo(user,identificadoresDeMiembrosDelEquipo)) {
+			return hallarTagDeMiembroDelEquipo(user,identificadoresDeMiembrosDelEquipo).name
+			} else {
+				throw {message : "El usuario no tiene tag de miembro del equipo aplicado"}}
+	}
+const identificadoresDeMiembrosDelEquipo = () => {
+	var options = {
+			url: `https://api.intercom.io/teams`,
+			auth : {bearer: bearer},
+			json: true
+		}
+	return promiseRetry(() => request(options))
+	.then(equipos => equipos.teams.find(team => team.name == 'Producteca').admin_ids.map(miembroDeEquipo => miembroDeEquipo.toString())) 
+}
+const obtenerUsuario = userId => {
+	var options = {
+			url: `https://api.intercom.io/users/${userId}`,
+			auth : {bearer: bearer},
+			json: true
+		}
+	return promiseRetry(() => request(options))
+}
+const malAsignada = (conversacion,tagDeMiembroDelEquipoEnUsuario) => {
+	return conversacion.assignee.id != tagDeMiembroDelEquipoEnUsuario
+}
+const estaCerrada = conversacion => {
+	return conversacion.state == "closed"
+}
+const cumpleCondicionesParaTratamiento = (conversacion,tagDeMiembroDelEquipoEnUsuario) => {
+	return malAsignada(conversacion,tagDeMiembroDelEquipoEnUsuario) && estaCerrada(conversacion) 
+}
+const procesarConversacion = (conversacion,identificadoresDeMiembrosDelEquipo) => {
+	return obtenerUsuario(conversacion.user.id)
+	.then(user => tagDeMiembroDelEquipoEnUsuario(user,identificadoresDeMiembrosDelEquipo)) // verificar porque ahora no devuelve una promise 
+	.then(tagDeMiembroDelEquipoEnUsuario => {if(cumpleCondicionesParaTratamiento(conversacion,tagDeMiembroDelEquipoEnUsuario)) {
+		asignarCorrectamenteYCerrarConversacion(conversacion.id, conversacion.assignee.id,tagDeMiembroDelEquipoEnUsuario)
+	} else {console.log(`Conversacion ${conversacion.id} asignada correctamente`)}})
+	.catch(err => console.log(err.message))
+}
+
+module.exports.procesarConversacion = procesarConversacion
+module.exports.identificadoresDeMiembrosDelEquipo = identificadoresDeMiembrosDelEquipo 
