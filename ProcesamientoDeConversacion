@@ -15,32 +15,32 @@ const asignarCorrectamenteYCerrarConversacion = (idConversacion,idAdministrador,
 	}
 	return promiseRetry(() => request(options))
 	.then(() => console.log(`conversacion ${idConversacion} reasignada desde ${idAdministrador} hacia ${idAsignado}`))
-	.catch(err => console.log(err))
 }
 const tagDeMiembroDelEquipoEnUsuario = (user,identificadoresDeMiembrosDelEquipo) => {
 	const hallarTagDeMiembroDelEquipo = (user,identificadoresDeMiembrosDelEquipo) => {
 		return user.tags.tags.find(tag => _.includes(identificadoresDeMiembrosDelEquipo,tag.name))
 	}
 	if(hallarTagDeMiembroDelEquipo(user,identificadoresDeMiembrosDelEquipo)) {
-			return hallarTagDeMiembroDelEquipo(user,identificadoresDeMiembrosDelEquipo).name
-			} else {
-				throw {message : "El usuario no tiene tag de miembro del equipo aplicado"}}
+		return hallarTagDeMiembroDelEquipo(user,identificadoresDeMiembrosDelEquipo).name
+	} else {
+		throw {message : "El usuario no tiene tag de miembro del equipo aplicado"}
 	}
+}
 const identificadoresDeMiembrosDelEquipo = () => {
 	var options = {
-			url: `https://api.intercom.io/teams`,
-			auth : {bearer: bearer},
-			json: true
-		}
+		url: `https://api.intercom.io/teams`,
+		auth : {bearer: bearer},
+		json: true
+	}
 	return promiseRetry(() => request(options))
 	.then(equipos => equipos.teams.find(team => team.name == 'Producteca').admin_ids.map(miembroDeEquipo => miembroDeEquipo.toString())) 
 }
 const obtenerUsuario = userId => {
 	var options = {
-			url: `https://api.intercom.io/users/${userId}`,
-			auth : {bearer: bearer},
-			json: true
-		}
+		url: `https://api.intercom.io/users/${userId}`,
+		auth : {bearer: bearer},
+		json: true
+	}
 	return promiseRetry(() => request(options))
 }
 const malAsignada = (conversacion,tagDeMiembroDelEquipoEnUsuario) => {
@@ -55,11 +55,18 @@ const cumpleCondicionesParaTratamiento = (conversacion,tagDeMiembroDelEquipoEnUs
 const procesarConversacion = (conversacion,identificadoresDeMiembrosDelEquipo) => {
 	return obtenerUsuario(conversacion.user.id)
 	.then(user => tagDeMiembroDelEquipoEnUsuario(user,identificadoresDeMiembrosDelEquipo)) // verificar porque ahora no devuelve una promise 
-	.then(tagDeMiembroDelEquipoEnUsuario => {if(cumpleCondicionesParaTratamiento(conversacion,tagDeMiembroDelEquipoEnUsuario)) {
-		asignarCorrectamenteYCerrarConversacion(conversacion.id, conversacion.assignee.id,tagDeMiembroDelEquipoEnUsuario)
-	} else {console.log(`Conversacion ${conversacion.id} asignada correctamente`)}})
+	.then(tagDeMiembroDelEquipoEnUsuario => {
+		if(cumpleCondicionesParaTratamiento(conversacion,tagDeMiembroDelEquipoEnUsuario)) {
+			return asignarCorrectamenteYCerrarConversacion(conversacion.id, conversacion.assignee.id,tagDeMiembroDelEquipoEnUsuario)
+		} else {
+			console.log(`Conversacion ${conversacion.id} asignada correctamente`)
+		}
+	})
 	.catch(err => console.log(err.message))
 }
 
-module.exports.procesarConversacion = procesarConversacion
-module.exports.identificadoresDeMiembrosDelEquipo = identificadoresDeMiembrosDelEquipo 
+module.exports = {
+	procesarConversacion,
+	identificadoresDeMiembrosDelEquipo 
+}
+//crear un objetito INTERCOMAPI, con todo el comportamiento de la API de intercom.
